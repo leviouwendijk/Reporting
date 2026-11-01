@@ -18,6 +18,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/DSL.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Search.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Math.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Testing.git", branch: "master"),
     ],
     targets: [
@@ -26,6 +27,7 @@ let package = Package(
             dependencies: [
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Search", package: "Search"),
+                .product(name: "Math", package: "Math"),
             ]
         ),
         .executableTarget(

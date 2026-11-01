@@ -16,6 +16,12 @@ public struct ReportSource: Sendable, Codable, Hashable {
 }
 
 public struct ReportDataset: Sendable, Codable, Hashable {
+    public enum Coverage: Sendable, Codable, Hashable {
+        case complete
+        case partial(offset: Int, total: Int?)
+        case unknown
+    }
+
     public struct Row: Sendable, Codable, Hashable {
         public let values: [StructuredValue?]
         public let sources: [ReportSource]
@@ -35,8 +41,10 @@ public struct ReportDataset: Sendable, Codable, Hashable {
         case invalidColumn(String)
         case invalidRow(Int)
         case invalidSource(Int)
+        case invalidCoverage
     }
 
+    public let coverage: Coverage
     public let id: String
     public let columns: [StructuredField]
     public let rows: [Row]
@@ -44,7 +52,8 @@ public struct ReportDataset: Sendable, Codable, Hashable {
     public init(
         id: String,
         columns: [StructuredField],
-        rows: [Row]
+        rows: [Row],
+        coverage: Coverage = .unknown
     ) throws {
         guard !id.isEmpty else {
             throw Failure.emptyName
@@ -71,9 +80,32 @@ public struct ReportDataset: Sendable, Codable, Hashable {
                 throw Failure.invalidSource(index)
             }
         }
+        if case .partial(let offset, let total) = coverage {
+            guard offset >= 0 else { throw Failure.invalidCoverage }
+            if let total {
+                guard total >= offset, rows.count <= total - offset else {
+                    throw Failure.invalidCoverage
+                }
+            }
+        }
+        self.coverage = coverage
         self.id = id
         self.columns = columns
         self.rows = rows
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, columns, rows, coverage
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            id: container.decode(String.self, forKey: .id),
+            columns: container.decode([StructuredField].self, forKey: .columns),
+            rows: container.decode([Row].self, forKey: .rows),
+            coverage: container.decodeIfPresent(Coverage.self, forKey: .coverage) ?? .unknown
+        )
     }
 
     /// Indexed lookup for renderers; never changes the authoritative row values.
