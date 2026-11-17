@@ -8,6 +8,9 @@ public struct ReportDocument: Sendable, Codable, Hashable {
         case unknownDataset(String)
         case unknownColumn(dataset: String, column: String)
         case invalidChartMeasure(String)
+        case emptyBlock(Int)
+        case invalidTimeline(Int)
+        case invalidGraph(Int)
     }
 
     public let title: String
@@ -25,10 +28,32 @@ public struct ReportDocument: Sendable, Codable, Hashable {
                 throw Failure.duplicateDataset(dataset.id)
             }
         }
-        for block in blocks {
+        for (index, block) in blocks.enumerated() {
             switch block {
             case .narrative:
                 break
+            case .facts(let facts):
+                guard !facts.facts.isEmpty else { throw Failure.emptyBlock(index) }
+            case .callout:
+                break
+            case .timeline(let timeline):
+                guard timeline.start < timeline.end,
+                      timeline.lanes.allSatisfy({ $0.spans.allSatisfy { $0.start <= $0.end } }) else {
+                    throw Failure.invalidTimeline(index)
+                }
+            case .graph(let graph):
+                var nodes: Set<String> = []
+                for node in graph.nodes {
+                    guard nodes.insert(node.id).inserted else { throw Failure.invalidGraph(index) }
+                }
+                var edges: Set<String> = []
+                for edge in graph.edges {
+                    guard edges.insert(edge.id).inserted,
+                          nodes.contains(edge.source),
+                          nodes.contains(edge.destination) else {
+                        throw Failure.invalidGraph(index)
+                    }
+                }
             case .table(let table):
                 guard let dataset = byID[table.dataset] else {
                     throw Failure.unknownDataset(table.dataset)
@@ -63,6 +88,10 @@ public enum ReportBlock: Sendable, Codable, Hashable {
     case narrative(StructuredContent)
     case table(Table)
     case chart(Chart)
+    case facts(Facts)
+    case callout(Callout)
+    case timeline(Timeline)
+    case graph(Graph)
 
     public struct Table: Sendable, Codable, Hashable {
         public let dataset: String

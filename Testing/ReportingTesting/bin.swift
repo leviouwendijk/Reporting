@@ -175,5 +175,40 @@ enum ReportingTestSuite {
                 )
             }
         }
+
+        Test("facts-callout-timeline-graph-roundtrip-and-guards") {
+            let start = Date(timeIntervalSince1970: 1_800_000_000)
+            let document = try ReportDocument(
+                title: "Proposal",
+                datasets: [],
+                blocks: [
+                    .facts(.init(facts: [.init("when", "Tue 10:00")])),
+                    .callout(.init(tone: .warning, content: .paragraph([.text("No location")]))),
+                    .timeline(.init(start: start, end: start + 3600, timeZone: "Europe/Amsterdam", lanes: [
+                        .init(label: "Levi", spans: [.init(start: start, end: start + 900, mark: .occupied)]),
+                    ])),
+                    .graph(.init(
+                        nodes: [.init(id: "a", label: "A"), .init(id: "b", label: "B")],
+                        edges: [.init(id: "ab", source: "a", destination: "b")]
+                    )),
+                ]
+            )
+            let restored = try JSONDecoder().decode(ReportDocument.self, from: JSONEncoder().encode(document))
+            try Expect.equal(restored, document, "New blocks survive Codable roundtrip")
+
+            try Expect.throwsError("Empty facts rejected") {
+                _ = try ReportDocument(title: "x", datasets: [], blocks: [.facts(.init(facts: []))])
+            }
+            try Expect.throwsError("Timeline window must be ordered") {
+                _ = try ReportDocument(title: "x", datasets: [], blocks: [
+                    .timeline(.init(start: start, end: start, lanes: [])),
+                ])
+            }
+            try Expect.throwsError("Edges must join known nodes") {
+                _ = try ReportDocument(title: "x", datasets: [], blocks: [
+                    .graph(.init(nodes: [.init(id: "a", label: "A")], edges: [.init(id: "e", source: "a", destination: "z")])),
+                ])
+            }
+        }
     }
 }
