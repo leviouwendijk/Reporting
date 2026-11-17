@@ -179,7 +179,10 @@ public enum ReportMarkdown {
         text.replacingOccurrences(of: "\n", with: " ")
     }
 
+    /// A table cell; line breaks inside it (several entries) become `<br>`.
     static func cell(_ text: String) -> String {
-        inline(text).replacingOccurrences(of: "|", with: "\\|")
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String($0).replacingOccurrences(of: "|", with: "\\|") }
+            .joined(separator: "<br>")
     }
 }
