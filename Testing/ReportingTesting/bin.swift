@@ -210,5 +210,42 @@ enum ReportingTestSuite {
                 ])
             }
         }
+
+        Test("markdown-and-html-exports") {
+            let start = Date(timeIntervalSince1970: 1_763_449_200) // 2026-11-18 08:00 Amsterdam
+            let dataset = try ReportDataset(
+                id: "options",
+                columns: [.init("option", kind: .text), .init("score", kind: .decimal)],
+                rows: [.init(values: [.text("A | first"), .decimal(Decimal(string: "0.67")!)])],
+                coverage: .complete
+            )
+            let document = try ReportDocument(
+                title: "Plan <draft>",
+                datasets: [dataset],
+                blocks: [
+                    .facts(.init(facts: [.init("Recommended", "Tue 10:00")])),
+                    .narrative(.list(style: .unordered, items: [.paragraph([.strong([.text("morning")])])])),
+                    .callout(.init(tone: .warning, title: "Gaps", content: .paragraph([.text("No location")]))),
+                    .table(.init(dataset: "options", columns: ["option", "score"])),
+                    .timeline(.init(start: start, end: start + 8 * 3600, timeZone: "Europe/Amsterdam", lanes: [
+                        .init(label: "Levi", spans: [.init(start: start + 7200, end: start + 10800, mark: .highlight, label: "A")]),
+                    ])),
+                ]
+            )
+            let markdown = ReportMarkdown.render(document)
+            try Expect.true(markdown.hasPrefix("# Plan <draft>"), "Markdown title")
+            try Expect.true(markdown.contains("- **Recommended**: Tue 10:00"), "Facts as a list")
+            try Expect.true(markdown.contains("- **morning**"), "Narrative Markdown")
+            try Expect.true(markdown.contains("> **Gaps**"), "Callout as a quote")
+            try Expect.true(markdown.contains("| A \\| first | 0.67 |"), "Table cells escaped")
+            try Expect.true(markdown.contains("- 10:00–11:00 highlight · A"), "Timeline spans in the zone")
+
+            let html = ReportHTML.render(document)
+            try Expect.true(html.contains("<title>Plan &lt;draft&gt;</title>"), "HTML escapes")
+            try Expect.true(html.contains("class=\"callout warning\""), "Callout tone")
+            try Expect.true(html.contains("<td class=\"num\">0.67</td>"), "Numeric cells aligned")
+            try Expect.true(html.contains("class=\"highlight\" style=\"left:25.00%;width:12.50%\""), "Span placed on the axis")
+            try Expect.true(html.contains("@page { size: A4"), "Printable")
+        }
     }
 }
