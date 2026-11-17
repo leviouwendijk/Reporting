@@ -71,7 +71,7 @@ public enum ReportHTML {
         }.joined()
         let rows = dataset.rows.map { row in
             "<tr>" + indices.map { index in
-                "<td\(ReportText.isNumeric(dataset.columns[index].kind) ? " class=\"num\"" : "")>\(escape(ReportText.value(row.values[index])))</td>"
+                "<td\(ReportText.isNumeric(dataset.columns[index].kind) ? " class=\"num\"" : "")>\(escape(ReportText.value(row.values[index])).replacingOccurrences(of: "\n", with: "<br>"))</td>"
             }.joined() + "</tr>"
         }.joined()
         parts.append("<table><thead><tr>\(head)</tr></thead><tbody>\(rows)</tbody></table>")

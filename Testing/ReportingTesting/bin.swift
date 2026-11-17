@@ -216,7 +216,10 @@ enum ReportingTestSuite {
             let dataset = try ReportDataset(
                 id: "options",
                 columns: [.init("option", kind: .text), .init("score", kind: .decimal)],
-                rows: [.init(values: [.text("A | first"), .decimal(Decimal(string: "0.67")!)])],
+                rows: [
+                    .init(values: [.text("A | first"), .decimal(Decimal(string: "0.67")!)]),
+                    .init(values: [.text("10:00 one\n12:00 two"), nil]),
+                ],
                 coverage: .complete
             )
             let document = try ReportDocument(
@@ -238,12 +241,14 @@ enum ReportingTestSuite {
             try Expect.true(markdown.contains("- **morning**"), "Narrative Markdown")
             try Expect.true(markdown.contains("> **Gaps**"), "Callout as a quote")
             try Expect.true(markdown.contains("| A \\| first | 0.67 |"), "Table cells escaped")
+            try Expect.true(markdown.contains("| 10:00 one<br>12:00 two |"), "Line breaks inside a cell")
             try Expect.true(markdown.contains("- 10:00–11:00 highlight · A"), "Timeline spans in the zone")
 
             let html = ReportHTML.render(document)
             try Expect.true(html.contains("<title>Plan &lt;draft&gt;</title>"), "HTML escapes")
             try Expect.true(html.contains("class=\"callout warning\""), "Callout tone")
             try Expect.true(html.contains("<td class=\"num\">0.67</td>"), "Numeric cells aligned")
+            try Expect.true(html.contains("<td>10:00 one<br>12:00 two</td>"), "Line breaks inside an HTML cell")
             try Expect.true(html.contains("class=\"highlight\" style=\"left:25.00%;width:12.50%\""), "Span placed on the axis")
             try Expect.true(html.contains("@page { size: A4"), "Printable")
         }
