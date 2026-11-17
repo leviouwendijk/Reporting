@@ -235,9 +235,9 @@ public enum ReportHTML {
     .spans { columns: 2; column-gap: 24px; font-size: 13px; margin-top: 8px; }
     .spans > div { break-inside: avoid; margin-bottom: 8px; }
     .spans ul { list-style: none; margin: 2px 0; padding: 0; }
-    pre { background: var(--wash); padding: 10px; overflow-x: auto; }
+    pre { background: var(--wash); padding: 10px; white-space: pre-wrap; }
     blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--rule); color: var(--muted); }
     footer { margin-top: 32px; font-size: 12px; color: var(--muted); }
-    @media (max-width: 560px) { .axis, .lane { grid-template-columns: 84px 1fr; } .spans { columns: 1; } }
+    @media screen and (max-width: 560px) { .axis, .lane { grid-template-columns: 84px 1fr; } .spans { columns: 1; } }
     """
 }
