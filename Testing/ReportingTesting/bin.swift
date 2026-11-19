@@ -252,5 +252,43 @@ enum ReportingTestSuite {
             try Expect.true(html.contains("class=\"highlight\" style=\"left:25.00%;width:12.50%\""), "Span placed on the axis")
             try Expect.true(html.contains("@page { size: A4"), "Printable")
         }
+
+        Test("event-card") {
+            let start = Date(timeIntervalSince1970: 1_763_449_200) // 2025-11-18 08:00 Amsterdam
+            let event = ReportBlock.Event(
+                title: "Weekly session",
+                interval: .init(start: start + 7200, end: start + 7200 + 5400),
+                timeZone: "Europe/Amsterdam",
+                change: .update,
+                previous: .init(start: start, end: start + 5400),
+                calendar: "Trainer A",
+                attendees: ["Trainer A", "Trainer B"],
+                details: [.init("client", "1042")],
+                warnings: ["Overlaps another event"],
+                context: .init(start: start, end: start + 8 * 3600, timeZone: "Europe/Amsterdam", lanes: [
+                    .init(label: "Trainer A", spans: [.init(start: start + 7200, end: start + 12600, mark: .highlight)]),
+                ])
+            )
+            try Expect.equal(event.heading, "Changed event", "Heading names the change")
+            try Expect.equal(event.lines.map(\.label), ["when", "was", "calendar", "with", "client"], "Standard lines, then details")
+            try Expect.equal(event.lines[0].value, "Tue 18 Nov 10:00–11:30 · 1h 30m", "When with length")
+            let allDay = ReportBlock.Event(title: "Off", interval: .init(start: start, end: start + 86_400), timeZone: "Europe/Amsterdam", allDay: true)
+            try Expect.true(allDay.lines[0].value.hasSuffix("· all day"), "All-day events")
+
+            let document = try ReportDocument(title: "Book", datasets: [], blocks: [.event(event)])
+            let restored = try JSONDecoder().decode(ReportDocument.self, from: JSONEncoder().encode(document))
+            try Expect.equal(restored, document, "Event survives Codable roundtrip")
+            try Expect.throwsError("Event interval must be ordered") {
+                _ = try ReportDocument(title: "x", datasets: [], blocks: [
+                    .event(.init(title: "x", interval: .init(start: start + 1, end: start))),
+                ])
+            }
+            let markdown = ReportMarkdown.render(document)
+            try Expect.true(markdown.contains("**Changed event: Weekly session**"), "Markdown card heading")
+            try Expect.true(markdown.contains("- ⚠ Overlaps another event"), "Markdown warnings")
+            let html = ReportHTML.render(document)
+            try Expect.true(html.contains("class=\"event update\""), "HTML card tone")
+            try Expect.true(html.contains("<dt>client</dt><dd>1042</dd>"), "HTML details")
+        }
     }
 }

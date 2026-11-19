@@ -27,6 +27,15 @@ public enum ReportHTML {
                 body.append(datasets[spec.dataset].map { chart(spec, $0) } ?? missing(spec.dataset))
             case .timeline(let timeline):
                 body.append(self.timeline(timeline))
+            case .event(let event):
+                let rows = event.lines.map { "<dt>\(escape($0.label))</dt><dd>\(escape($0.value))</dd>" }
+                let warnings = event.warnings.map { "<li>\(escape($0))</li>" }.joined()
+                body.append("<section class=\"event \(event.change?.rawValue ?? "current")\">"
+                    + "<h2><span class=\"muted\">\(escape(event.heading))</span> \(escape(event.title))</h2>"
+                    + "<dl class=\"facts\">\(rows.joined())</dl>"
+                    + (warnings.isEmpty ? "" : "<ul class=\"warnings\">\(warnings)</ul>")
+                    + (event.context.map(self.timeline) ?? "")
+                    + "</section>")
             case .graph(let graph):
                 let labels = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.id, $0.label) })
                 let items = graph.edges.map { edge in
@@ -211,6 +220,9 @@ public enum ReportHTML {
     .callout { border-left: 4px solid var(--info); background: var(--wash); padding: 8px 14px; margin: 14px 0; break-inside: avoid; }
     .callout.success { border-color: var(--success); } .callout.warning { border-color: var(--warning); } .callout.failure { border-color: var(--failure); }
     .callout > strong { display:block; }
+    .event { border: 1px solid var(--rule); border-left: 4px solid var(--info); padding: 8px 14px; margin: 14px 0; break-inside: avoid; }
+    .event.cancel { border-left-color: var(--failure); } .event.update { border-left-color: var(--warning); }
+    .event h2 { margin: 0 0 6px; } .event .warnings { color: var(--warning); margin: 6px 0; padding-left: 18px; }
     .callout ul { margin: 4px 0; padding-left: 18px; }
     table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; font-variant-numeric: tabular-nums; break-inside: auto; }
     th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }

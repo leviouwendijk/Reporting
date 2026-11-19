@@ -95,6 +95,12 @@ public enum ReportMarkdown {
                 section = table(.init(dataset: spec.dataset, columns: [spec.x, spec.y], title: spec.title ?? "\(spec.y) by \(spec.x)"), dataset)
             case .timeline(let timeline):
                 section = self.timeline(timeline)
+            case .event(let event):
+                var lines = ["**\(inline(event.heading)): \(inline(event.title))**", ""]
+                lines += event.lines.map { "- **\(inline($0.label))**: \(inline($0.value))" }
+                lines += event.warnings.map { "- ⚠ \(inline($0))" }
+                if let context = event.context { lines += ["", self.timeline(context)] }
+                section = lines.joined(separator: "\n")
             case .graph(let graph):
                 let labels = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.id, $0.label) })
                 section = (graph.title.map { "**\(inline($0))**\n\n" } ?? "")

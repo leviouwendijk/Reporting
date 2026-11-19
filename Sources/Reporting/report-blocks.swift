@@ -107,6 +107,85 @@ public extension ReportBlock {
         public var zone: TimeZone {
             timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
         }
+
+        var isValid: Bool {
+            start < end && lanes.allSatisfy { $0.spans.allSatisfy { $0.start <= $0.end } }
+        }
+    }
+
+    /// One calendar event as a card: what, when, where and who, and how it
+    /// sits in its day. A tool shapes its card through the optional parts
+    /// and `details`, not through its own renderer.
+    struct Event: Sendable, Codable, Hashable {
+        /// What the card announces; nil for an event shown as it stands.
+        public enum Change: String, Sendable, Codable, Hashable, CaseIterable {
+            case create
+            case update
+            case cancel
+        }
+
+        public struct Interval: Sendable, Codable, Hashable {
+            public let start: Date
+            public let end: Date
+
+            public init(start: Date, end: Date) {
+                self.start = start
+                self.end = end
+            }
+        }
+
+        public let title: String
+        public let interval: Interval
+        /// Zone the times read in; the renderer's zone when absent.
+        public let timeZone: String?
+        public let allDay: Bool
+        public let change: Change?
+        /// Where an updated event was before.
+        public let previous: Interval?
+        public let calendar: String?
+        public let location: String?
+        public let attendees: [String]
+        public let notes: String?
+        /// Tool-specific lines under the standard ones, e.g. a client number.
+        public let details: [Facts.Fact]
+        /// Overlaps and other things to weigh before deciding.
+        public let warnings: [String]
+        /// The surrounding day, usually with this event as the highlight.
+        public let context: Timeline?
+
+        public init(
+            title: String,
+            interval: Interval,
+            timeZone: String? = nil,
+            allDay: Bool = false,
+            change: Change? = nil,
+            previous: Interval? = nil,
+            calendar: String? = nil,
+            location: String? = nil,
+            attendees: [String] = [],
+            notes: String? = nil,
+            details: [Facts.Fact] = [],
+            warnings: [String] = [],
+            context: Timeline? = nil
+        ) {
+            self.title = title
+            self.interval = interval
+            self.timeZone = timeZone
+            self.allDay = allDay
+            self.change = change
+            self.previous = previous
+            self.calendar = calendar
+            self.location = location
+            self.attendees = attendees
+            self.notes = notes
+            self.details = details
+            self.warnings = warnings
+            self.context = context
+        }
+
+        public var zone: TimeZone {
+            timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
+        }
     }
 
     /// Nodes and directed edges; parallel edges and cycles are allowed.
@@ -164,5 +243,50 @@ public extension ReportBlock {
             self.edges = edges
             self.references = references
         }
+    }
+}
+
+/// Display forms every renderer shares, so a card reads the same everywhere.
+public extension ReportBlock.Event {
+    var heading: String {
+        switch change {
+        case .create?: "New event"
+        case .update?: "Changed event"
+        case .cancel?: "Cancelled event"
+        case nil: "Event"
+        }
+    }
+
+    /// `Sun 29 Nov 10:00–11:30 · 1h 30m`, or `Sun 29 Nov · all day`.
+    func when(_ interval: Interval) -> String {
+        if allDay {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = zone
+            let day = ReportText.formatter("EEE d MMM", zone: zone)
+            let last = interval.end.addingTimeInterval(-1)
+            guard interval.end > interval.start,
+                  !calendar.isDate(interval.start, inSameDayAs: last) else {
+                return day.string(from: interval.start) + " · all day"
+            }
+            return day.string(from: interval.start) + " – " + day.string(from: last) + " · all day"
+        }
+        let minutes = Int(interval.end.timeIntervalSince(interval.start) / 60)
+        let length = minutes >= 60
+            ? "\(minutes / 60)h" + (minutes % 60 == 0 ? "" : " \(minutes % 60)m")
+            : "\(minutes)m"
+        let range = ReportText.range(interval.start, interval.end, zone: zone)
+            .replacingOccurrences(of: " – ", with: "–")
+        return range + " · " + length
+    }
+
+    /// The labeled lines under the title, standard ones first.
+    var lines: [ReportBlock.Facts.Fact] {
+        var lines = [ReportBlock.Facts.Fact("when", when(interval))]
+        if let previous { lines.append(.init("was", when(previous))) }
+        if let calendar { lines.append(.init("calendar", calendar)) }
+        if let location { lines.append(.init("where", location)) }
+        if !attendees.isEmpty { lines.append(.init("with", attendees.joined(separator: ", "))) }
+        if let notes { lines.append(.init("notes", notes)) }
+        return lines + details
     }
 }

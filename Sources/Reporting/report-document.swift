@@ -11,6 +11,7 @@ public struct ReportDocument: Sendable, Codable, Hashable {
         case emptyBlock(Int)
         case invalidTimeline(Int)
         case invalidGraph(Int)
+        case invalidEvent(Int)
     }
 
     public let title: String
@@ -37,9 +38,12 @@ public struct ReportDocument: Sendable, Codable, Hashable {
             case .callout:
                 break
             case .timeline(let timeline):
-                guard timeline.start < timeline.end,
-                      timeline.lanes.allSatisfy({ $0.spans.allSatisfy { $0.start <= $0.end } }) else {
-                    throw Failure.invalidTimeline(index)
+                guard timeline.isValid else { throw Failure.invalidTimeline(index) }
+            case .event(let event):
+                guard event.interval.start <= event.interval.end,
+                      event.previous.map({ $0.start <= $0.end }) ?? true,
+                      event.context?.isValid ?? true else {
+                    throw Failure.invalidEvent(index)
                 }
             case .graph(let graph):
                 var nodes: Set<String> = []
@@ -91,6 +95,7 @@ public enum ReportBlock: Sendable, Codable, Hashable {
     case facts(Facts)
     case callout(Callout)
     case timeline(Timeline)
+    case event(Event)
     case graph(Graph)
 
     public struct Table: Sendable, Codable, Hashable {
