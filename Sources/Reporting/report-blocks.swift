@@ -146,6 +146,15 @@ public extension ReportBlock {
         public let location: String?
         public let attendees: [String]
         public let notes: String?
+        /// How it repeats, in words: `every week, 5 times`.
+        public let recurrence: String?
+        /// Notifications, in minutes before the start.
+        public let alerts: [Int]
+        /// Time set aside to get there, in minutes before the start.
+        public let travelMinutes: Int?
+        public let url: String?
+        /// Attached files or links, by name.
+        public let attachments: [String]
         /// Tool-specific lines under the standard ones, e.g. a client number.
         public let details: [Facts.Fact]
         /// Overlaps and other things to weigh before deciding.
@@ -164,6 +173,11 @@ public extension ReportBlock {
             location: String? = nil,
             attendees: [String] = [],
             notes: String? = nil,
+            recurrence: String? = nil,
+            alerts: [Int] = [],
+            travelMinutes: Int? = nil,
+            url: String? = nil,
+            attachments: [String] = [],
             details: [Facts.Fact] = [],
             warnings: [String] = [],
             context: Timeline? = nil
@@ -178,6 +192,11 @@ public extension ReportBlock {
             self.location = location
             self.attendees = attendees
             self.notes = notes
+            self.recurrence = recurrence
+            self.alerts = alerts
+            self.travelMinutes = travelMinutes
+            self.url = url
+            self.attachments = attachments
             self.details = details
             self.warnings = warnings
             self.context = context
@@ -270,13 +289,17 @@ public extension ReportBlock.Event {
             }
             return day.string(from: interval.start) + " – " + day.string(from: last) + " · all day"
         }
-        let minutes = Int(interval.end.timeIntervalSince(interval.start) / 60)
-        let length = minutes >= 60
-            ? "\(minutes / 60)h" + (minutes % 60 == 0 ? "" : " \(minutes % 60)m")
-            : "\(minutes)m"
+        let length = Self.length(Int(interval.end.timeIntervalSince(interval.start) / 60))
         let range = ReportText.range(interval.start, interval.end, zone: zone)
             .replacingOccurrences(of: " – ", with: "–")
         return range + " · " + length
+    }
+
+    /// `45m`, `1h 30m`, `2d`.
+    static func length(_ minutes: Int) -> String {
+        if minutes >= 1440, minutes % 1440 == 0 { return "\(minutes / 1440)d" }
+        if minutes >= 60 { return "\(minutes / 60)h" + (minutes % 60 == 0 ? "" : " \(minutes % 60)m") }
+        return "\(minutes)m"
     }
 
     /// The labeled lines under the title, standard ones first.
@@ -286,6 +309,13 @@ public extension ReportBlock.Event {
         if let calendar { lines.append(.init("calendar", calendar)) }
         if let location { lines.append(.init("where", location)) }
         if !attendees.isEmpty { lines.append(.init("with", attendees.joined(separator: ", "))) }
+        if let recurrence { lines.append(.init("repeats", recurrence)) }
+        if let travelMinutes { lines.append(.init("travel", Self.length(travelMinutes) + " before")) }
+        if !alerts.isEmpty {
+            lines.append(.init("alerts", alerts.sorted().map { $0 == 0 ? "at start" : Self.length($0) + " before" }.joined(separator: ", ")))
+        }
+        if let url { lines.append(.init("link", url)) }
+        if !attachments.isEmpty { lines.append(.init("attached", attachments.joined(separator: ", "))) }
         if let notes { lines.append(.init("notes", notes)) }
         return lines + details
     }
